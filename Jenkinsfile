@@ -1,5 +1,8 @@
 pipeline {
     agent any
+    triggers {
+        githubPush()
+    }
     environment {
         SONAR_TOKEN = credentials('sonar-token')
     }
