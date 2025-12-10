@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    tools {
-        git 'git'     // Nom configuré dans Global Tool Configuration
-        maven 'maven' // Si tu l'as configuré
-    }
-
     triggers {
         githubPush()
     }
@@ -19,7 +14,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo '📥 Clonage du code...'
-                git branch: 'main', url: 'https://github.com/sahlihamza/DevOps_Project.git'
+                git branch: 'main', url: 'https://github.com/hanaharraghi/student-mangement.git'
             }
         }
 
@@ -57,10 +52,9 @@ pipeline {
             }
         }
 
-        stage('DockerHub Login & Push Image') {
+        stage('DockerHub Login & Push') {
             steps {
-                echo '🔐 Connexion à DockerHub...'
-                
+                echo '🔐 Connexion et push vers DockerHub...'
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
                         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
@@ -77,11 +71,7 @@ pipeline {
                 sh '''
                     docker stop student-app || true
                     docker rm student-app || true
-
-                    docker run -d \
-                        --name student-app \
-                        -p 8081:8089 \
-                        student-management:latest
+                    docker run -d --name student-app -p 8081:8089 student-management:latest
                 '''
             }
         }
@@ -92,7 +82,7 @@ pipeline {
             echo '🎉 Pipeline exécuté avec succès !'
         }
         failure {
-            echo '❌ Pipeline échoué – Vérifiez les logs !'
+            echo '❌ Pipeline échoué – Vérifie les logs !'
         }
     }
 }
