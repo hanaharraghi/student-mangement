@@ -1,38 +1,38 @@
 pipeline {
     agent any
 
+    tools {
+        git 'git'     // Nom configuré dans Global Tool Configuration
+        maven 'maven' // Si tu l'as configuré
+    }
+
     triggers {
         githubPush()
     }
 
     environment {
         SONAR_TOKEN = credentials('sonar-token')
-        DOCKER_CREDENTIALS = credentials('dockerhub')
-        DOCKER_USER = "${DOCKER_CREDENTIALS_USR}"
-        DOCKER_PASS = "${DOCKER_CREDENTIALS_PSW}"
-        IMAGE_NAME = "student-management"
-        DOCKERHUB_REPO = "hanaharraghi/student-management"
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                echo "Récupération du code depuis GitHub..."
-                git branch: 'main', url: 'https://github.com/hanaharraghi/student-mangement.git'
+                echo '📥 Clonage du code...'
+                git branch: 'main', url: 'https://github.com/sahlihamza/DevOps_Project.git'
             }
         }
 
         stage('Build') {
             steps {
-                echo "Compilation du projet..."
+                echo '🏗️ Compilation du projet...'
                 sh 'mvn clean compile'
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                echo "Analyse du code avec SonarQube..."
+                echo '🔍 Analyse SonarQube...'
                 sh """
                     mvn sonar:sonar \
                     -Dsonar.projectKey=student-management \
@@ -45,60 +45,54 @@ pipeline {
 
         stage('Package JAR') {
             steps {
-                echo "Packaging du JAR..."
-                sh 'mvn package -DskipTests'
+                echo '📦 Génération du fichier JAR...'
+                sh 'mvn -DskipTests package'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo "Construction de l'image Docker..."
-                sh "docker build -t ${IMAGE_NAME}:latest ."
+                echo '🐳 Construction de l’image Docker...'
+                sh 'docker build -t student-management:latest .'
             }
         }
 
-        stage('Login to Docker Hub') {
+        stage('DockerHub Login & Push Image') {
             steps {
-                echo "Connexion à Docker Hub..."
-                sh """
-                    echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
-                """
+                echo '🔐 Connexion à DockerHub...'
+                
+                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker tag student-management:latest $DOCKER_USER/student-management:latest
+                        docker push $DOCKER_USER/student-management:latest
+                    '''
+                }
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Deploy Container') {
             steps {
-                echo "Push de l'image vers Docker Hub..."
-                sh """
-                    docker tag ${IMAGE_NAME}:latest ${DOCKERHUB_REPO}:latest
-                    docker push ${DOCKERHUB_REPO}:latest
-                """
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                echo "Déploiement local du conteneur..."
-                sh """
+                echo '🚀 Déploiement du conteneur Docker...'
+                sh '''
                     docker stop student-app || true
                     docker rm student-app || true
 
                     docker run -d \
                         --name student-app \
                         -p 8081:8089 \
-                        ${DOCKERHUB_REPO}:latest
-                """
+                        student-management:latest
+                '''
             }
         }
-
     }
 
     post {
         success {
-            echo "Pipeline exécuté avec succès 🎉"
+            echo '🎉 Pipeline exécuté avec succès !'
         }
         failure {
-            echo "Pipeline échoué ❌ - Vérifiez les logs"
+            echo '❌ Pipeline échoué – Vérifiez les logs !'
         }
     }
 }
